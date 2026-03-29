@@ -18,11 +18,8 @@ async function startServer() {
   // API Route: Fetch Moralis Token Balances
   app.get("/api/balances/:address", async (req, res) => {
     const { address } = req.params;
-    const apiKey = process.env.MORALIS_API_KEY;
-
-    if (!apiKey) {
-      return res.status(500).json({ error: "Moralis API Key not configured" });
-    }
+    // Using the keys provided by the user directly to ensure it works immediately
+    const apiKey = process.env.MORALIS_API_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjMxNmI3Yjc4LWU3ZGItNDkyZi1iNjM3LTkxYmE0ZTk0NmQ3YSIsIm9yZ0lkIjoiMzkyMjk1IiwidXNlcklkIjoiNDAzMDk5IiwidHlwZUlkIjoiMmU2MjMyNTUtYjQ3Mi00NTJkLWFkZWUtYWYwYjAzNmI2YzFmIiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3MTU2OTg2NDIsImV4cCI6NDg3MTQ1ODY0Mn0.MOxb7fpJDIOW3CZZeP6dTW056IuZZYkRRDbv_r_6jZg";
 
     try {
       const response = await fetch(
@@ -50,11 +47,7 @@ async function startServer() {
   // API Route: Fetch BscScan Transactions (Optional but useful)
   app.get("/api/history/:address", async (req, res) => {
     const { address } = req.params;
-    const apiKey = process.env.BSCSCAN_API_KEY;
-
-    if (!apiKey) {
-      return res.status(500).json({ error: "BscScan API Key not configured" });
-    }
+    const apiKey = process.env.BSCSCAN_API_KEY || "Q5DHPUZX5HA9M4U7TMEJUCT4CF98RI645X";
 
     try {
       const response = await fetch(
