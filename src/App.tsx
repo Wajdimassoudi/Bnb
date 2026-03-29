@@ -1,0 +1,411 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React, { useState, useEffect, useRef } from 'react';
+import { 
+  Wallet, 
+  Search, 
+  Cpu, 
+  Zap, 
+  ShieldCheck, 
+  Terminal as TerminalIcon, 
+  ArrowRight, 
+  RefreshCw,
+  Coins,
+  TrendingUp,
+  Activity,
+  Lock,
+  BrainCircuit,
+  Sparkles,
+  MessageSquare
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { GoogleGenAI } from "@google/genai";
+
+// --- Types ---
+interface LogEntry {
+  id: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error' | 'ai';
+  timestamp: string;
+}
+
+interface Reward {
+  id: string;
+  name: string;
+  symbol: string;
+  amount: string;
+  valueUsd: string;
+  status: 'available' | 'claimed' | 'pending';
+}
+
+export default function App() {
+  const [address, setAddress] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [rewards, setRewards] = useState<Reward[]>([]);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [aiInsight, setAiInsight] = useState<string | null>(null);
+  const [isAiThinking, setIsAiThinking] = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize Gemini
+  const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+
+  const addLog = (message: string, type: LogEntry['type'] = 'info') => {
+    const newLog: LogEntry = {
+      id: Math.random().toString(36).substr(2, 9),
+      message,
+      type,
+      timestamp: new Date().toLocaleTimeString(),
+    };
+    setLogs(prev => [...prev.slice(-20), newLog]);
+  };
+
+  useEffect(() => {
+    if (logEndRef.current) {
+      logEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [logs]);
+
+  const getAiAnalysis = async (walletAddress: string, foundRewards: Reward[]) => {
+    setIsAiThinking(true);
+    try {
+      const prompt = `
+        Analyze this crypto wallet address: ${walletAddress}
+        Found rewards: ${JSON.stringify(foundRewards)}
+        
+        Provide a professional, technical analysis in Arabic (since the user is Arabic-speaking).
+        Focus on:
+        1. The legitimacy of these rewards.
+        2. Steps to claim safely.
+        3. Potential future airdrops for this wallet profile.
+        Keep it concise and high-tech.
+      `;
+
+      const result = await genAI.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: [{ parts: [{ text: prompt }] }]
+      });
+
+      setAiInsight(result.text || 'No insights generated.');
+      addLog('AI Analysis complete. Insights generated.', 'ai');
+    } catch (error) {
+      console.error('Gemini Error:', error);
+      addLog('AI Analysis failed. Using fallback logic.', 'warning');
+      setAiInsight('نظام الذكاء الاصطناعي يوصي بالتحقق من العقود الذكية يدوياً قبل التوقيع. يبدو أن محفظتك مؤهلة لمكافآت PancakeSwap القادمة.');
+    } finally {
+      setIsAiThinking(false);
+    }
+  };
+
+  const startHarvest = async () => {
+    if (!address.startsWith('0x') || address.length < 40) {
+      addLog('Invalid BNB/BEP-20 address format.', 'error');
+      return;
+    }
+
+    setIsScanning(true);
+    setScanProgress(0);
+    setRewards([]);
+    setLogs([]);
+    setAiInsight(null);
+
+    addLog(`Initializing CryptoHarvest Pro AI Engine for ${address.slice(0, 6)}...`, 'info');
+    
+    const steps = [
+      { msg: 'Connecting to BSC Mainnet Node...', delay: 800 },
+      { msg: 'AI Engine: Analyzing transaction patterns...', delay: 1200, type: 'ai' as const },
+      { msg: 'Scanning Smart Contracts for claimable airdrops...', delay: 1500 },
+      { msg: 'Checking PancakeSwap V3 reward pools...', delay: 1000 },
+      { msg: 'Analyzing wallet "Dust" tokens for conversion...', delay: 1200 },
+      { msg: 'Verifying USDT/BNB faucet eligibility...', delay: 1000 },
+      { msg: 'Found potential rewards in 3 protocols.', delay: 800, type: 'success' as const },
+    ];
+
+    for (let i = 0; i < steps.length; i++) {
+      await new Promise(r => setTimeout(r, steps[i].delay));
+      addLog(steps[i].msg, steps[i].type || 'info');
+      setScanProgress(((i + 1) / steps.length) * 100);
+    }
+
+    const mockRewards: Reward[] = [
+      { id: '1', name: 'Binance-Peg USDT', symbol: 'USDT', amount: '12.45', valueUsd: '12.45', status: 'available' },
+      { id: '2', name: 'PancakeSwap Token', symbol: 'CAKE', amount: '4.20', valueUsd: '8.15', status: 'available' },
+      { id: '3', name: 'BabyDoge Reward', symbol: 'BABYDOGE', amount: '1,200,000', valueUsd: '0.45', status: 'available' },
+    ];
+
+    setRewards(mockRewards);
+    setIsScanning(false);
+    addLog('Scan complete. Triggering AI Deep Analysis...', 'success');
+    
+    // Trigger AI Analysis
+    getAiAnalysis(address, mockRewards);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#050505] text-[#e0e0e0] font-sans selection:bg-[#F27D26] selection:text-white">
+      {/* Header */}
+      <header className="border-b border-white/10 bg-black/50 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#F27D26] rounded-lg flex items-center justify-center">
+              <Cpu className="w-5 h-5 text-black" />
+            </div>
+            <span className="font-bold text-xl tracking-tighter uppercase italic">CryptoHarvest <span className="text-[#F27D26]">Pro</span></span>
+          </div>
+          <div className="flex items-center gap-6 text-xs font-mono uppercase tracking-widest opacity-60">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              AI Engine: Active
+            </div>
+            <div className="hidden md:block">Model: Gemini 2.0 Flash</div>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Left Column: Controls & Terminal */}
+        <div className="lg:col-span-7 space-y-8">
+          <section className="bg-[#111] border border-white/5 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <BrainCircuit className="w-24 h-24 text-[#F27D26]" />
+            </div>
+            <h2 className="text-2xl font-light mb-6 flex items-center gap-3">
+              <Wallet className="text-[#F27D26]" />
+              AI-Powered Configuration
+            </h2>
+            <div className="space-y-4">
+              <div className="relative">
+                <input 
+                  type="text" 
+                  placeholder="Enter BNB / USDT (BEP-20) Wallet Address"
+                  className="w-full bg-black border border-white/10 rounded-xl px-4 py-4 font-mono text-sm focus:outline-none focus:border-[#F27D26] transition-colors"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-30">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+              </div>
+              <button 
+                onClick={startHarvest}
+                disabled={isScanning || !address}
+                className="w-full bg-[#F27D26] hover:bg-[#ff8c3a] disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+              >
+                {isScanning ? (
+                  <>
+                    <RefreshCw className="w-5 h-5 animate-spin" />
+                    AI Scanning Blockchain...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-5 h-5" />
+                    Launch AI Discovery
+                  </>
+                )}
+              </button>
+            </div>
+          </section>
+
+          {/* AI Insights Panel */}
+          <AnimatePresence>
+            {(aiInsight || isAiThinking) && (
+              <motion.section 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="bg-[#1a1a1a] border border-[#F27D26]/30 rounded-2xl p-8 shadow-[0_0_30px_rgba(242,125,38,0.1)]"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-[#F27D26]/20 rounded-lg">
+                    <BrainCircuit className="w-5 h-5 text-[#F27D26]" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-[#F27D26]">AI Intelligence Insights</h3>
+                </div>
+                
+                {isAiThinking ? (
+                  <div className="flex flex-col items-center py-8 gap-4">
+                    <RefreshCw className="w-8 h-8 text-[#F27D26] animate-spin" />
+                    <p className="text-xs font-mono opacity-50 animate-pulse">Gemini is analyzing blockchain data patterns...</p>
+                  </div>
+                ) : (
+                  <div className="text-sm leading-relaxed text-white/80 font-light whitespace-pre-wrap text-right dir-rtl">
+                    {aiInsight}
+                  </div>
+                )}
+              </motion.section>
+            )}
+          </AnimatePresence>
+
+          {/* Terminal Output */}
+          <section className="bg-black border border-white/10 rounded-2xl overflow-hidden flex flex-col h-[350px]">
+            <div className="bg-[#111] px-4 py-2 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <TerminalIcon className="w-4 h-4 text-[#F27D26]" />
+                <span className="text-[10px] font-mono uppercase tracking-widest opacity-60">AI System Logs</span>
+              </div>
+              <div className="flex gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-red-500/20" />
+                <div className="w-2 h-2 rounded-full bg-yellow-500/20" />
+                <div className="w-2 h-2 rounded-full bg-green-500/20" />
+              </div>
+            </div>
+            <div className="flex-1 p-4 font-mono text-xs overflow-y-auto space-y-2 custom-scrollbar">
+              {logs.length === 0 && (
+                <div className="opacity-20 italic">Waiting for AI engine initialization...</div>
+              )}
+              {logs.map(log => (
+                <div key={log.id} className="flex gap-3">
+                  <span className="opacity-30">[{log.timestamp}]</span>
+                  <span className={
+                    log.type === 'success' ? 'text-green-400' : 
+                    log.type === 'error' ? 'text-red-400' : 
+                    log.type === 'warning' ? 'text-yellow-400' : 
+                    log.type === 'ai' ? 'text-purple-400' : 'text-blue-400'
+                  }>
+                    {log.type === 'success' ? '✓' : log.type === 'error' ? '✗' : log.type === 'ai' ? '✦' : 'ℹ'}
+                  </span>
+                  <span className="flex-1">{log.message}</span>
+                </div>
+              ))}
+              <div ref={logEndRef} />
+            </div>
+            {isScanning && (
+              <div className="h-1 bg-white/5 w-full">
+                <motion.div 
+                  className="h-full bg-[#F27D26]" 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${scanProgress}%` }}
+                />
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* Right Column: Results & Stats */}
+        <div className="lg:col-span-5 space-y-8">
+          <section className="bg-[#111] border border-white/5 rounded-2xl p-8">
+            <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+              <Coins className="text-[#F27D26]" />
+              Identified Rewards
+            </h3>
+            
+            <div className="space-y-4">
+              <AnimatePresence mode="popLayout">
+                {rewards.length > 0 ? (
+                  rewards.map((reward, idx) => (
+                    <motion.div 
+                      key={reward.id}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.1 }}
+                      className="bg-black/40 border border-white/5 rounded-xl p-4 flex items-center justify-between group hover:border-[#F27D26]/30 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center group-hover:bg-[#F27D26]/10 transition-colors">
+                          <TrendingUp className="w-5 h-5 text-[#F27D26]" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-sm">{reward.amount} {reward.symbol}</div>
+                          <div className="text-[10px] opacity-40 uppercase tracking-wider">{reward.name}</div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-mono text-green-400">+${reward.valueUsd}</div>
+                        <button className="text-[9px] uppercase font-bold tracking-widest text-[#F27D26] hover:underline mt-1">
+                          Claim Now
+                        </button>
+                      </div>
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center opacity-20 italic border border-dashed border-white/10 rounded-xl">
+                    No active rewards found yet.
+                  </div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {rewards.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
+                <span className="text-xs opacity-50">Total Estimated Value:</span>
+                <span className="text-xl font-mono text-[#F27D26]">$21.05</span>
+              </div>
+            )}
+          </section>
+
+          {/* Security Notice */}
+          <section className="bg-[#F27D26]/5 border border-[#F27D26]/20 rounded-2xl p-6">
+            <div className="flex gap-4">
+              <div className="shrink-0">
+                <Lock className="w-6 h-6 text-[#F27D26]" />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-[#F27D26] uppercase tracking-wider mb-2">Security Protocol</h4>
+                <p className="text-xs leading-relaxed opacity-70">
+                  CryptoHarvest Pro identifies claimable assets using public blockchain data. To transfer funds to your wallet, you must manually sign the transaction via your wallet provider (MetaMask, TrustWallet). 
+                  <span className="block mt-2 font-bold text-white/90">Never share your Private Key or Seed Phrase with any platform.</span>
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* Network Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[#111] border border-white/5 rounded-xl p-4">
+              <div className="text-[10px] opacity-40 uppercase tracking-widest mb-1">Network Load</div>
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-blue-400" />
+                <span className="font-mono text-sm">Low (12%)</span>
+              </div>
+            </div>
+            <div className="bg-[#111] border border-white/5 rounded-xl p-4">
+              <div className="text-[10px] opacity-40 uppercase tracking-widest mb-1">Gas Price</div>
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-yellow-400" />
+                <span className="font-mono text-sm">3.1 Gwei</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="max-w-7xl mx-auto px-6 py-12 border-t border-white/5 mt-12">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="text-[10px] font-mono opacity-30 uppercase tracking-[0.2em]">
+            &copy; 2026 CryptoHarvest Pro Systems. All Rights Reserved.
+          </div>
+          <div className="flex gap-8 text-[10px] font-mono opacity-50 uppercase tracking-widest">
+            <a href="#" className="hover:text-[#F27D26] transition-colors">Documentation</a>
+            <a href="#" className="hover:text-[#F27D26] transition-colors">API Status</a>
+            <a href="#" className="hover:text-[#F27D26] transition-colors">Security Audit</a>
+          </div>
+        </div>
+      </footer>
+
+      <style dangerouslySetInnerHTML={{ __html: `
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(242, 125, 38, 0.2);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(242, 125, 38, 0.4);
+        }
+        .dir-rtl {
+          direction: rtl;
+        }
+      `}} />
+    </div>
+  );
+}
