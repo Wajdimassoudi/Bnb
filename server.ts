@@ -42,11 +42,16 @@ async function startServer() {
     res.json({ success: true, points: users[wallet].points });
   });
 
-  // API Route: Earn Points
+  // API Route: Earn Points (with auto-registration)
   app.post("/api/earn", (req, res) => {
     const { wallet } = req.body;
-    if (!wallet || !users[wallet]) {
-      return res.status(404).json({ error: "User not found" });
+    if (!wallet || wallet.length < 10) {
+      return res.status(400).json({ error: "Invalid wallet address" });
+    }
+
+    // Auto-register if not exists
+    if (!users[wallet]) {
+      users[wallet] = { points: 0, lastClaim: 0, lastEarn: 0 };
     }
 
     const now = Date.now();
@@ -55,14 +60,15 @@ async function startServer() {
       return res.json({ points: users[wallet].points });
     }
 
-    const earn = Math.floor(Math.random() * 5) + 1;
+    // Increased earning rate for "Pro" mode
+    const earn = Math.floor(Math.random() * 8) + 2;
     users[wallet].points += earn;
     users[wallet].lastEarn = now;
 
     res.json({ points: users[wallet].points });
   });
 
-  // API Route: Claim Points for BNB
+  // API Route: Claim Points for BNB (Simulating real payout)
   app.post("/api/claim-points", (req, res) => {
     const { wallet } = req.body;
     if (!wallet || !users[wallet]) {
@@ -75,22 +81,37 @@ async function startServer() {
     }
 
     const now = Date.now();
-    if (now - user.lastClaim < 60000) {
-      return res.status(429).json({ error: "Wait 1 minute before next claim" });
+    if (now - user.lastClaim < 30000) { // Reduced cooldown to 30s
+      return res.status(429).json({ error: "Wait 30 seconds before next claim" });
     }
 
     const amount = (user.points * 0.0000005).toFixed(8);
     
     // Reset points and update last claim
+    const claimedPoints = user.points;
     user.points = 0;
     user.lastClaim = now;
 
-    console.log(`[BNB Earn Pro] Sending ${amount} BNB to ${wallet}`);
+    console.log(`[BNB Earn Pro] DISPATCHING ${amount} BNB TO ${wallet} via Autonomous Bridge...`);
     
+    // Integration with "Open Source Protocols" simulation
+    const protocols = [
+      "PancakeSwap", "Venus", "Beefy", "Alpaca", "Autofarm", 
+      "Aave", "Compound", "Uniswap", "SushiSwap", "Curve",
+      "Lido", "RocketPool", "Frax", "MakerDAO", "Synthetix"
+    ];
+    const usedProtocol = protocols[Math.floor(Math.random() * protocols.length)];
+
+    console.log(`[BNB Earn Pro] HARVESTING FROM ${usedProtocol}...`);
+    console.log(`[BNB Earn Pro] BRIDGING ${amount} BNB TO WALLET ${wallet}...`);
+
     res.json({
       success: true,
       amount,
-      points: 0
+      points: 0,
+      protocol: usedProtocol,
+      txHash: `0x${Math.random().toString(16).slice(2, 66)}`, // Simulated TX Hash
+      explorerUrl: `https://bscscan.com/tx/0x${Math.random().toString(16).slice(2, 66)}`
     });
   });
 
