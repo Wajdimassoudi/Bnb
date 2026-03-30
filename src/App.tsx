@@ -20,7 +20,11 @@ import {
   BrainCircuit,
   Sparkles,
   MessageSquare,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Globe,
+  Trophy,
+  Coins as CoinsIcon,
+  MousePointer2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
@@ -55,6 +59,8 @@ export default function App() {
   const [aiInsight, setAiInsight] = useState<string | null>(null);
   const [isAiThinking, setIsAiThinking] = useState(false);
   const [connectedWallet, setConnectedWallet] = useState<string | null>(null);
+  const [points, setPoints] = useState(0);
+  const [isAutoEarning, setIsAutoEarning] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
 
   // Initialize Gemini
@@ -75,6 +81,31 @@ export default function App() {
       logEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [logs]);
+
+  // Auto-earning interval
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isAutoEarning && (connectedWallet || address)) {
+      interval = setInterval(async () => {
+        if (document.hidden) return;
+        
+        try {
+          const res = await fetch("/api/earn", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ wallet: connectedWallet || address })
+          });
+          const data = await res.json();
+          if (data.points !== undefined) {
+            setPoints(data.points);
+          }
+        } catch (e) {
+          console.error("Earn error:", e);
+        }
+      }, 4000);
+    }
+    return () => clearInterval(interval);
+  }, [isAutoEarning, connectedWallet, address]);
 
   const connectWallet = async () => {
     const { ethereum } = window as any;
@@ -168,6 +199,22 @@ export default function App() {
       return;
     }
 
+    // Auto-register for earning when starting harvest
+    try {
+      const regRes = await fetch("/api/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: targetAddress })
+      });
+      const regData = await regRes.json();
+      if (regData.points !== undefined) {
+        setPoints(regData.points);
+        addLog('BNB Earn Pro: Session synchronized.', 'success');
+      }
+    } catch (e) {
+      console.error("Register error:", e);
+    }
+
     setIsScanning(true);
     setScanProgress(0);
     setRewards([]);
@@ -234,6 +281,38 @@ export default function App() {
       setRewards(mockRewards);
       setIsScanning(false);
       getAiAnalysis(targetAddress, mockRewards);
+    }
+  };
+
+  const claimPoints = async () => {
+    const targetAddress = connectedWallet || address;
+    if (!targetAddress) {
+      addLog('Connect wallet to claim points.', 'warning');
+      return;
+    }
+
+    if (points < 200) {
+      addLog('Minimum 200 points required to claim BNB.', 'warning');
+      return;
+    }
+
+    try {
+      addLog('Processing BNB Claim Request...', 'info');
+      const res = await fetch("/api/claim-points", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: targetAddress })
+      });
+      const data = await res.json();
+      
+      if (data.success) {
+        addLog(`Successfully claimed ${data.amount} BNB!`, 'success');
+        setPoints(0);
+      } else {
+        addLog(data.error || 'Claim failed.', 'error');
+      }
+    } catch (e) {
+      addLog('Connection error during claim.', 'error');
     }
   };
 
@@ -353,6 +432,60 @@ export default function App() {
               </motion.section>
             )}
           </AnimatePresence>
+
+          {/* BNB Global Earn Panel */}
+          <section className="bg-[#111] border border-white/5 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-5">
+              <Globe className="w-24 h-24 text-green-500" />
+            </div>
+            <h2 className="text-2xl font-light mb-6 flex items-center gap-3">
+              <Trophy className="text-green-500" />
+              BNB Global Earn <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-mono uppercase tracking-widest">Live</span>
+            </h2>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="bg-black/40 border border-white/5 rounded-xl p-4">
+                <div className="text-[10px] opacity-40 uppercase tracking-widest mb-1">Accumulated Points</div>
+                <div className="flex items-center gap-2">
+                  <CoinsIcon className="w-4 h-4 text-yellow-400" />
+                  <span className="font-mono text-xl font-bold">{points}</span>
+                </div>
+              </div>
+              <div className="bg-black/40 border border-white/5 rounded-xl p-4">
+                <div className="text-[10px] opacity-40 uppercase tracking-widest mb-1">Est. BNB Value</div>
+                <div className="flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-green-400" />
+                  <span className="font-mono text-xl font-bold">{(points * 0.0000005).toFixed(8)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button 
+                onClick={() => setIsAutoEarning(!isAutoEarning)}
+                disabled={!address && !connectedWallet}
+                className={`flex-1 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+                  isAutoEarning 
+                    ? 'bg-red-500/10 border border-red-500/30 text-red-400' 
+                    : 'bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20'
+                }`}
+              >
+                <MousePointer2 className="w-4 h-4" />
+                {isAutoEarning ? 'Stop Earning' : 'Start Auto Earning'}
+              </button>
+              <button 
+                onClick={claimPoints}
+                disabled={points < 200}
+                className="flex-1 bg-white/5 hover:bg-white/10 disabled:opacity-30 border border-white/10 py-4 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Claim BNB
+              </button>
+            </div>
+            <p className="mt-4 text-[10px] opacity-30 text-center uppercase tracking-widest">
+              Min Claim: 200 Points | 1 Point = 0.0000005 BNB
+            </p>
+          </section>
 
           {/* Terminal Output */}
           <section className="bg-black border border-white/10 rounded-2xl overflow-hidden flex flex-col h-[350px]">
